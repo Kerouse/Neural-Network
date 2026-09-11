@@ -45,7 +45,7 @@ class BaseModel(ABC):
 class FullyConnectedNN(BaseModel):
     """全连接神经网络（Fully Connected Neural Network, FCNN）前向传播。
 
-    结构与课件一致：
+    结构：
         输入 1024（32×32 单通道图像展平）
         -> 隐层1 256 + Sigmoid
         -> 隐层2 128 + Sigmoid
