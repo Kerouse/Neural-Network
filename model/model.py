@@ -60,6 +60,20 @@ class FullyConnectedNN(BaseModel):
         self.biases = []
         self._init_params()
 
+    def call(self, x):
+        """对外接口 f(x)：图片 -> 预测数字、one-hot、概率。"""
+        x = self.prepare_input(x)
+        probs, acts = self.forward(x)
+        n_class = self.layer_sizes[-1]
+        digit = np.argmax(probs, axis=1)
+        one_hot = np.eye(n_class, dtype=np.float64)[digit]
+        return {
+            "digit": digit,
+            "one_hot": one_hot,
+            "probs": probs,
+            "activations": acts,
+        }
+
     def _init_params(self):
         """按层随机初始化 W、b。权重用输入维度缩放，减轻 Sigmoid 饱和。"""
         for in_dim, out_dim in zip(self.layer_sizes[:-1], self.layer_sizes[1:]):
@@ -99,16 +113,4 @@ class FullyConnectedNN(BaseModel):
             acts.append(a)
         return a, acts
 
-    def call(self, x):
-        """对外接口 f(x)：图片 -> 预测数字、one-hot、概率。"""
-        x = self.prepare_input(x)
-        probs, acts = self.forward(x)
-        n_class = self.layer_sizes[-1]
-        digit = np.argmax(probs, axis=1)
-        one_hot = np.eye(n_class, dtype=np.float64)[digit]
-        return {
-            "digit": digit,
-            "one_hot": one_hot,
-            "probs": probs,
-            "activations": acts,
-        }
+
