@@ -31,9 +31,10 @@ Neural Network/
   losses/criterion.py   # 自定义损失 CrossEntropyLoss
   train.py              # 训练入口 Trainer；每 10 个 epoch 打印准确率；画混淆矩阵
   inspect_weights.py    # 查看 outputs/best.pth
-  outputs/              # 训练产物（不进 git）
+    outputs/              # 训练产物（不进 git）
     best.pth
     confusion_matrix.png
+    train_curves.png      # 准确率曲线 + 损失下降曲线（同一张图）
   requirements.txt
 ```
 
@@ -80,6 +81,7 @@ python train.py
 
 - 训练 50 个 epoch，每 10 轮打印训练集 / 测试集准确率
 - 最优权重写入 `outputs/best.pth`
+- 准确率曲线与损失下降曲线写入 `outputs/train_curves.png`（左右拼在一张图）
 - 测试集混淆矩阵写入 `outputs/confusion_matrix.png`
 
 只评估、不重新训练：
@@ -106,4 +108,4 @@ model.eval()
 
 ## 实测（CPU，50 epoch）
 
-测试准确率约 97.4%～97.6%。混淆矩阵见 `outputs/confusion_matrix.png`（行=真实数字，列=预测数字）。
+测试准确率约 97.4%～97.6%。曲线图见 `outputs/train_curves.png`；混淆矩阵见 `outputs/confusion_matrix.png`（行=真实数字，列=预测数字）。

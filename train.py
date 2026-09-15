@@ -36,11 +36,48 @@ def confusion_matrix(y_true, y_pred, n_class=N_CLASS):
     return cm
 
 
+def _use_chinese_font():
+    plt.rcParams["font.sans-serif"] = ["Microsoft YaHei", "SimHei", "sans-serif"]
+    plt.rcParams["axes.unicode_minus"] = False
+
+
+def plot_train_curves(history, save_path):
+    """准确率曲线和损失下降曲线画在同一张图（左右两栏）。"""
+    _use_chinese_font()
+    epochs = history["epoch"]
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 4.8))
+
+    ax = axes[0]
+    ax.plot(epochs, [a * 100 for a in history["train_acc"]], label="训练集", color="#1f77b4")
+    ax.plot(epochs, [a * 100 for a in history["test_acc"]], label="测试集", color="#ff7f0e")
+    ax.set_xlabel("迭代次数（epoch）")
+    ax.set_ylabel("准确率（%）")
+    ax.set_title("准确率随迭代次数变化")
+    ax.set_ylim(0, 105)
+    ax.grid(True, linestyle="--", alpha=0.4)
+    ax.legend()
+
+    ax = axes[1]
+    ax.plot(epochs, history["train_loss"], label="训练集", color="#1f77b4")
+    ax.plot(epochs, history["test_loss"], label="测试集", color="#ff7f0e")
+    ax.set_xlabel("迭代次数（epoch）")
+    ax.set_ylabel("损失（Cross Entropy）")
+    ax.set_title("损失函数下降曲线")
+    ax.grid(True, linestyle="--", alpha=0.4)
+    ax.legend()
+
+    fig.tight_layout()
+    save_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(save_path, dpi=150)
+    plt.close(fig)
+    return save_path
+
+
 def plot_confusion_matrix(cm, save_path, acc):
     """画出并保存混淆矩阵图。"""
     cm_np = cm.numpy()
-    plt.rcParams["font.sans-serif"] = ["Microsoft YaHei", "SimHei", "sans-serif"]
-    plt.rcParams["axes.unicode_minus"] = False
+    _use_chinese_font()
 
     fig, ax = plt.subplots(figsize=(8, 7))
     im = ax.imshow(cm_np, cmap="Blues")
@@ -152,22 +189,41 @@ class Trainer:
         print(f"epochs     : {epochs}  (每 {self.log_every} 个 epoch 输出准确率)")
         print()
 
+        history = {
+            "epoch": [],
+            "train_loss": [],
+            "train_acc": [],
+            "test_loss": [],
+            "test_acc": [],
+        }
+
         for epoch in range(1, epochs + 1):
             train_loss, train_acc = self._run_epoch(self.train_loader, train=True)
+            test_loss, test_acc = self._run_epoch(self.test_loader, train=False)
+
+            history["epoch"].append(epoch)
+            history["train_loss"].append(train_loss)
+            history["train_acc"].append(train_acc)
+            history["test_loss"].append(test_loss)
+            history["test_acc"].append(test_acc)
+
             if epoch % self.log_every == 0 or epoch == epochs:
-                test_loss, test_acc = self._run_epoch(self.test_loader, train=False)
                 print(
                     f"Epoch {epoch:3d}/{epochs}  "
                     f"train_loss={train_loss:.4f}  train_acc={train_acc * 100:6.2f}%  "
                     f"test_loss={test_loss:.4f}  test_acc={test_acc * 100:6.2f}%"
                 )
-                if test_acc > best_acc:
-                    best_acc = test_acc
-                    torch.save(self.model.state_dict(), best_path)
+            if test_acc > best_acc:
+                best_acc = test_acc
+                torch.save(self.model.state_dict(), best_path)
+
+        curve_path = OUTPUT_DIR / "train_curves.png"
+        plot_train_curves(history, curve_path)
 
         print()
         print(f"最优测试准确率: {best_acc * 100:.2f}%")
         print(f"权重已保存    : {best_path}")
+        print(f"训练曲线已保存: {curve_path}")
         return best_path
 
     def save_confusion_matrix(self, weight_path=None):
