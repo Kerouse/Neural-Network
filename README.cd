@@ -1,4 +1,109 @@
-# PyTorch Project
-> 完成学习神经网络第一步：forward
+# 用 PyTorch 实现手写数字识别
 
+> 自定义网络、自定义数据集、自定义损失函数；面向对象，分 4 个文件；每 10 个 epoch 输出准确率。
 
+## 环境
+
+- Python 3.14
+- PyTorch 2.12.1 CPU 版（`torch==2.12.1+cpu`，`torchvision==0.27.1+cpu`）
+- 依赖见 `requirements.txt`
+
+安装（CPU）：
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+若尚未安装 PyTorch，用官方 CPU 源：
+
+```bash
+python -m pip install torch==2.12.1 torchvision==0.27.1 --index-url https://download.pytorch.org/whl/cpu
+```
+
+Windows 上若 `import torch` 报 `c10.dll` 错误，需安装 [Microsoft Visual C++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe)。
+
+## 目录
+
+```
+Neural Network/
+  data/dataset.py       # 自定义数据集 DigitImageDataset
+  models/network.py     # 自定义网络 FullyConnectedNN
+  losses/criterion.py   # 自定义损失 CrossEntropyLoss
+  train.py              # 训练入口 Trainer；每 10 个 epoch 打印准确率；画混淆矩阵
+  inspect_weights.py    # 查看 outputs/best.pth
+  outputs/              # 训练产物（不进 git）
+    best.pth
+    confusion_matrix.png
+  requirements.txt
+```
+
+对应作业 4 个文件：`data/dataset.py`、`models/network.py`、`losses/criterion.py`、`train.py`。
+
+## 原始数据
+
+代码里访问 `raw date` 的位置只有 `train.py` 这一处常量：
+
+```python
+RAW_DATA_DIR = Path(r"C:\Users\kelouse\PycharmProjects\raw date\Neural Network")
+```
+
+`build_trainer()` 再拼出子目录：
+
+- `...\raw date\Neural Network\training_img`（1934 张）
+- `...\raw date\Neural Network\test_img`（946 张）
+
+图片为 32×32 灰度 PNG，文件名 `{数字}_{序号}.png`，例如 `0_0.png` 表示数字 0。
+
+真正读盘在 `data/dataset.py`：扫 `*.png`、从文件名解析标签、缩放到 32×32、像素除以 255、展平为 1024 维。
+
+改数据路径时，只改 `train.py` 里的 `RAW_DATA_DIR`。
+
+## 网络
+
+全连接结构（与课件一致）：
+
+```
+输入 1024（32×32 展平）
+  -> 256 + Sigmoid
+  -> 128 + Sigmoid
+  ->  64 + Sigmoid
+  ->  10  logits（损失里再做 Softmax）
+```
+
+## 怎么运行
+
+在项目根目录、用本项目解释器（`.venv` 或已装好 PyTorch 的 Python）：
+
+```bash
+python train.py
+```
+
+- 训练 50 个 epoch，每 10 轮打印训练集 / 测试集准确率
+- 最优权重写入 `outputs/best.pth`
+- 测试集混淆矩阵写入 `outputs/confusion_matrix.png`
+
+只评估、不重新训练：
+
+```bash
+python train.py --eval
+```
+
+## 权重文件怎么打开
+
+`.pth` 是二进制，不能当文本双击打开。在 PyCharm 运行 `inspect_weights.py`，或：
+
+```python
+import torch
+from models import FullyConnectedNN
+
+state = torch.load(r"outputs\best.pth", map_location="cpu", weights_only=True)
+model = FullyConnectedNN()
+model.load_state_dict(state)
+model.eval()
+```
+
+`best.pth` 里 8 组参数（4 层 Linear 的 weight / bias），共 304202 个数。`net.1/3/5` 是 Sigmoid，没有权重。
+
+## 实测（CPU，50 epoch）
+
+测试准确率约 97.4%～97.6%。混淆矩阵见 `outputs/confusion_matrix.png`（行=真实数字，列=预测数字）。
