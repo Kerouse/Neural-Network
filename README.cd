@@ -1,6 +1,6 @@
-# 用 PyTorch 实现手写数字识别
+# 用 PyTorch 实现 LeNet-5 手写数字识别
 
-> 自定义网络、自定义数据集、自定义损失函数；面向对象，分 4 个文件；每 10 个 epoch 输出准确率。
+> ：模块封装网络；卷积=`BackBone`，全连接=`Head`；评估；loss/acc 曲线；保存 `best.pt` 与 `last.pt`。
 
 ## 环境
 
@@ -8,16 +8,8 @@
 - PyTorch 2.12.1 CPU 版（`torch==2.12.1+cpu`，`torchvision==0.27.1+cpu`）
 - 依赖见 `requirements.txt`
 
-安装（CPU）：
-
 ```bash
 python -m pip install -r requirements.txt
-```
-
-若尚未安装 PyTorch，用官方 CPU 源：
-
-```bash
-python -m pip install torch==2.12.1 torchvision==0.27.1 --index-url https://download.pytorch.org/whl/cpu
 ```
 
 Windows 上若 `import torch` 报 `c10.dll` 错误，需安装 [Microsoft Visual C++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe)。
@@ -26,86 +18,83 @@ Windows 上若 `import torch` 报 `c10.dll` 错误，需安装 [Microsoft Visual
 
 ```
 Neural Network/
-  data/dataset.py       # 自定义数据集 DigitImageDataset
-  models/network.py     # 自定义网络 FullyConnectedNN
-  losses/criterion.py   # 自定义损失 CrossEntropyLoss
-  train.py              # 训练入口 Trainer；每 10 个 epoch 打印准确率；画混淆矩阵
-  inspect_weights.py    # 查看 outputs/best.pth
-    outputs/              # 训练产物（不进 git）
-    best.pth
+  data/dataset.py          # 自定义数据集，输出 (1, 32, 32)
+  models/
+    backbone.py            # BackBone：Conv-1 / Pool-1 / Conv-2 / Pool-2
+    head.py                # Head：C5(120) / F6(84) / OUTPUT(10)
+    network.py             # LeNet5 = BackBone + Head
+  losses/criterion.py      # 自定义交叉熵
+  train.py                 # 训练 + 曲线 + 保存 best.pt / last.pt
+  evaluate.py              # 独立评估：测试集 loss / acc / 混淆矩阵
+  inspect_weights.py       # 查看 best.pt
+  outputs/
+    best.pt
+    last.pt
+    train_curves.png
     confusion_matrix.png
-    train_curves.png      # 准确率曲线 + 损失下降曲线（同一张图）
-  requirements.txt
 ```
 
-对应作业 4 个文件：`data/dataset.py`、`models/network.py`、`losses/criterion.py`、`train.py`。
+## 网络（LeNet-5）
+
+```
+INPUT 1@32×32
+  Conv-1  5×5, stride=1, pad=0, 6 核   ->  6@28×28
+  Pool-1  2×2, stride=2, pad=0         ->  6@14×14
+  Conv-2  5×5, stride=1, pad=0, 16 核  -> 16@10×10
+  Pool-2  2×2, stride=2, pad=0         -> 16@5×5
+  C5      Linear 400 -> 120
+  F6      Linear 120 -> 84
+  OUTPUT  Linear  84 -> 10  logits
+```
+
+卷积封装在 `BackBone`，全连接封装在 `Head`，`LeNet5` 把两者拼起来。激活为 Tanh，下采样为平均池化（对应图中 Subsampling）。
 
 ## 原始数据
 
-代码里访问 `raw date` 的位置只有 `train.py` 这一处常量：
+路径只在 `train.py` 的 `RAW_DATA_DIR`：
 
 ```python
 RAW_DATA_DIR = Path(r"C:\Users\kelouse\PycharmProjects\raw date\Neural Network")
 ```
 
-`build_trainer()` 再拼出子目录：
-
-- `...\raw date\Neural Network\training_img`（1934 张）
-- `...\raw date\Neural Network\test_img`（946 张）
-
-图片为 32×32 灰度 PNG，文件名 `{数字}_{序号}.png`，例如 `0_0.png` 表示数字 0。
-
-真正读盘在 `data/dataset.py`：扫 `*.png`、从文件名解析标签、缩放到 32×32、像素除以 255、展平为 1024 维。
-
-改数据路径时，只改 `train.py` 里的 `RAW_DATA_DIR`。
-
-## 网络
-
-全连接结构（与课件一致）：
-
-```
-输入 1024（32×32 展平）
-  -> 256 + Sigmoid
-  -> 128 + Sigmoid
-  ->  64 + Sigmoid
-  ->  10  logits（损失里再做 Softmax）
-```
+- `training_img`：1934 张
+- `test_img`：946 张
+- 32×32 灰度 PNG，文件名 `{数字}_{序号}.png`
 
 ## 怎么运行
-
-在项目根目录、用本项目解释器（`.venv` 或已装好 PyTorch 的 Python）：
 
 ```bash
 python train.py
 ```
 
-- 训练 50 个 epoch，每 10 轮打印训练集 / 测试集准确率
-- 最优权重写入 `outputs/best.pth`
-- 准确率曲线与损失下降曲线写入 `outputs/train_curves.png`（左右拼在一张图）
-- 测试集混淆矩阵写入 `outputs/confusion_matrix.png`
+- 训练 50 个 epoch，每 10 轮打印 loss / acc
+- `outputs/best.pt`：测试准确率最高的权重
+- `outputs/last.pt`：最后一个 epoch 的权重
+- `outputs/train_curves.png`：准确率曲线 + 损失下降曲线（一张图左右两栏）
 
-只评估、不重新训练：
+只评估：
 
 ```bash
+python evaluate.py
 python train.py --eval
 ```
 
-## 权重文件怎么打开
+查看权重：
 
-`.pth` 是二进制，不能当文本双击打开。在 PyCharm 运行 `inspect_weights.py`，或：
+```bash
+python inspect_weights.py
+```
 
 ```python
 import torch
-from models import FullyConnectedNN
+from models import LeNet5
 
-state = torch.load(r"outputs\best.pth", map_location="cpu", weights_only=True)
-model = FullyConnectedNN()
+state = torch.load(r"outputs\best.pt", map_location="cpu", weights_only=True)
+model = LeNet5()
 model.load_state_dict(state)
 model.eval()
 ```
 
-`best.pth` 里 8 组参数（4 层 Linear 的 weight / bias），共 304202 个数。`net.1/3/5` 是 Sigmoid，没有权重。
-
 ## 实测（CPU，50 epoch）
 
-测试准确率约 97.4%～97.6%。曲线图见 `outputs/train_curves.png`；混淆矩阵见 `outputs/confusion_matrix.png`（行=真实数字，列=预测数字）。
+测试准确率约 **98.63%**。曲线见 `outputs/train_curves.png`，混淆矩阵见 `outputs/confusion_matrix.png`。

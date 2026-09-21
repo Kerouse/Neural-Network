@@ -10,7 +10,7 @@ class DigitImageDataset(Dataset):
     """自定义手写数字数据集。
 
     从目录中读取 PNG，用文件名第一段作为标签：`{digit}_{index}.png`。
-    处理流程：灰度 -> 缩放到 32×32 -> [0, 1] 归一化 -> 展平为 1024 维。
+    处理流程：灰度 -> 缩放到 32×32 -> [0, 1] 归一化 -> 张量 (1, 32, 32)，供卷积使用。
     """
 
     def __init__(self, image_dir, image_size=32):
@@ -40,6 +40,6 @@ class DigitImageDataset(Dataset):
                 img = img.resize((self.image_size, self.image_size), Image.BILINEAR)
             pixels = np.asarray(img, dtype=np.float32) / 255.0
 
-        x = torch.from_numpy(pixels.reshape(-1))
+        x = torch.from_numpy(pixels).unsqueeze(0)
         y = torch.tensor(label, dtype=torch.long)
         return x, y
