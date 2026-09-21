@@ -155,7 +155,7 @@ def plot_precision_recall(scores, save_path):
 
 
 def save_precision_recall_table(scores, save_path):
-    """把每类指标写成 UTF-8 文本，方便交作业。"""
+    """把每类指标写成 UTF-8 文本。"""
     p = scores["precision"]
     r = scores["recall"]
     f1 = scores["f1"]
